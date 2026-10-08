@@ -1,0 +1,305 @@
+RISC-V VEGA / THEJAS32 MICROPROCESSOR LAB
+10 ASSIGNMENT QUESTIONS
+
+Based on the Lyra SDK examples and HAL drivers in this repository.
+Target board: ARIESv2 / Thejas32
+
+GENERAL INSTRUCTIONS
+---------------------
+1. Use the Lyra HAL APIs wherever an equivalent driver function exists.
+2. Each assignment must include a main.c file and a Makefile.
+3. Test the program using make before flashing it to the board.
+4. For UART assignments, use huart0 at the default 115200 baud, 8 data bits,
+   no parity, and 1 stop bit unless the question specifies otherwise.
+5. The RGB LED on ARIESv2 is active-low. Use the RGB_*_SET and RGB_*_RST
+   macros from hal/include/aries.h.
+6. For timer assignments, use the periodic timer examples as a reference.
+   The examples define MILLIS(t) as t * 100000 for the 100 MHz system clock.
+
+
+SECTION A: BASIC TOPIC-WISE QUESTIONS
+=====================================
+
+QUESTION 1: RGB LED SEQUENCE USING GPIO OUTPUTS
+------------------------------------------------
+Write a program that configures the ARIESv2 RGB LED pins as GPIO outputs.
+Turn on the red, green, and blue LEDs one at a time in the following order:
+
+    RED -> GREEN -> BLUE -> repeat
+
+Keep each LED on for 500 ms and switch all LEDs off before selecting the next
+color. Use delayms() for timing.
+
+Required concepts:
+- GPIO_Init()
+- GPIO_SetPin() / GPIO_ResetPin(), or the ARIES RGB macros
+- delayms()
+- active-low LED operation
+
+Reference examples:
+- examples/Blinky/blinky.c
+- hal/include/aries.h
+
+
+QUESTION 2: PUSH-BUTTON CONTROL USING GPIO POLLING
+---------------------------------------------------
+Configure GPIOB pins 2 and 3 as digital inputs and configure the three ARIESv2
+RGB pins as outputs. Continuously poll the two push-button inputs.
+
+Required behavior:
+- Button 0 pressed: turn on the green LED only.
+- Button 1 pressed: turn on the blue LED only.
+- Neither button pressed: turn on the red LED only.
+- All other RGB colors must be turned off whenever one color is selected.
+
+Add a simple debounce delay so that one button press does not cause visible
+flickering. Do not use interrupts in this assignment.
+
+Required concepts:
+- GPIO input/output configuration
+- GPIO_ReadPin()
+- polling and conditional logic
+
+Reference example:
+- examples/GPIO/GPIO_Polling/main.c
+
+
+QUESTION 3: UART POLLING ECHO WITH CHARACTER CLASSIFICATION
+------------------------------------------------------------
+Initialize UART0 and receive one character at a time using UART_Receive().
+For every received character, transmit a response in the following format:
+
+    Received: <character>, Type: <classification>
+
+Classify the character as one of the following:
+- Uppercase alphabet
+- Lowercase alphabet
+- Digit
+- Whitespace
+- Special character
+
+Use UART_Transmit() to send the response. The program must continue running
+until the board is reset.
+
+Required concepts:
+- UART_Init()
+- UART_Receive()
+- UART_Transmit()
+- character classification in C
+
+Reference example:
+- examples/UART/UART_Polling/uart.c
+
+
+QUESTION 4: PERIODIC RGB BLINK USING TIMER POLLING
+---------------------------------------------------
+Configure Timer 0 with a 1-second periodic interval and use TIMER_GetCount()
+to wait for the timer count to reach zero. Toggle the red LED each time the
+counter expires.
+
+Also transmit a UART message each time the red LED changes state:
+
+    RED LED ON
+    RED LED OFF
+
+Reinitialize or restart the timer as needed so that the sequence continues.
+Explain in your report why timer polling is less suitable than timer
+interrupts for a responsive embedded application.
+
+Required concepts:
+- TIMER_Init()
+- TIMER_Start()
+- TIMER_GetCount()
+- GPIO_TogglePin()
+- UART_Transmit()
+
+Reference example:
+- examples/Timer/TimerPolling/timer_poll.c
+
+
+QUESTION 5: TIMER INTERRUPT STATUS INDICATOR
+---------------------------------------------
+Configure Timer 0 in periodic interrupt mode with a 250 ms period. Implement
+TIMER_ElapsedCallback() so that the callback toggles the green LED every time
+the timer period elapses.
+
+The main() function must not use a delay loop or TIMER_GetCount() to control
+the LED. It should only perform initialization and then wait in an infinite
+loop.
+
+Required concepts:
+- TIMER_Start_IT()
+- TIMER_ElapsedCallback()
+- periodic timer operation
+- interrupt-driven GPIO control
+
+Reference example:
+- examples/Timer/TimerInterrupt/timer_int.c
+
+
+SECTION B: INTERRUPT AND MIXED-PERIPHERAL QUESTIONS
+===================================================
+
+QUESTION 6: GPIO EXTERNAL INTERRUPT BUTTON TOGGLE
+-------------------------------------------------
+Connect an active-high push button to GPIOA pin 3 as shown in the GPIO
+external-interrupt example. Configure the pin as an input and enable its GPIO
+interrupt.
+
+Every valid button press must toggle the blue LED. Add software debounce of at
+least 100 ms. The debounce must not permanently block the processor in the
+GPIO interrupt callback.
+
+The main loop should remain otherwise idle. Include a UART message after each
+button event indicating whether the blue LED is ON or OFF.
+
+Required concepts:
+- GPIO_IT_Enable(3)
+- GPIO_EXTICallback()
+- active-high GPIO interrupt input
+- volatile event flags
+- interrupt debounce
+
+Reference files:
+- examples/GPIO/GPIO_Interrupt/gpio_int.c
+- examples/GPIO/GPIO_Interrupt/README.md
+- hal/drivers/hal_gpio.c
+
+
+QUESTION 7: UART INTERRUPT RECEIVER FOR A FIVE-CHARACTER COMMAND
+----------------------------------------------------------------
+Initialize UART0 and receive exactly five characters using UART_Receive_IT().
+When all five characters have been received, implement UART_RxCpltCallback()
+to notify the main loop that a command is ready.
+
+The main loop must then:
+- Echo the complete five-character command.
+- Count how many characters are vowels.
+- Count how many characters are digits.
+- Print both counts over UART.
+- Arm the next five-character receive operation.
+
+Do not transmit from the UART receive callback. Use a shared buffer and a
+volatile completion flag.
+
+Required concepts:
+- UART_Receive_IT()
+- UART_RxCpltCallback()
+- fixed-length interrupt reception
+- shared buffers and volatile flags
+
+Reference example:
+- examples/UART/UART_Interrupt/uart_int.c
+
+
+QUESTION 8: MULTI-TIMER RGB INDICATOR
+--------------------------------------
+Configure all three timers in periodic interrupt mode:
+
+- Timer 0: 250 ms period
+- Timer 1: 500 ms period
+- Timer 2: 750 ms period
+
+Implement TIMER_ElapsedCallback() so that:
+- Timer 0 toggles the red LED.
+- Timer 1 toggles the green LED.
+- Timer 2 toggles the blue LED.
+
+Transmit a UART message identifying which timer elapsed. Keep the callback
+short and avoid delayms() inside the interrupt callback.
+
+In the lab report, explain how the callback identifies the timer using the
+TIMER_Handle_t pointer.
+
+Required concepts:
+- htimer0, htimer1, and htimer2
+- multiple timer interrupt sources
+- callback dispatch
+- GPIO and UART operations from an interrupt-driven design
+
+Reference example:
+- examples/Timer/TimerInterrupt/timer_int.c
+
+
+QUESTION 9: UART COMMAND-DRIVEN LED CONTROLLER
+-----------------------------------------------
+Build a UART-controlled RGB LED application using one-byte UART interrupt
+reception. Accept the following commands:
+
+- r: red LED only
+- g: green LED only
+- b: blue LED only
+- o: all LEDs off
+- s: report the current LED state
+
+After a command is completed, the UART receive callback must set a flag. The
+main loop must decode the command, update the LEDs, transmit the response, and
+arm the next one-byte receive operation.
+
+Invalid commands must produce:
+
+    Invalid command. Use r, g, b, o, or s.
+
+Uppercase commands should work exactly like lowercase commands.
+
+Required concepts:
+- UART interrupt reception
+- GPIO output control
+- command parser
+- callback-to-main event communication
+
+Reference files:
+- examples/UART/UART_Interrupt/uart_int.c
+- examples/Blinky/blinky.c
+- hal/drivers/hal_uart.c
+
+
+QUESTION 10: INTEGRATED INTERRUPT-DRIVEN RGB STATUS SYSTEM
+------------------------------------------------------------
+Develop a complete RGB status system combining GPIO, UART, Timer 0, and a
+GPIO external interrupt.
+
+Hardware configuration:
+- RGB LED outputs: GPIOB pins defined by RGB_RED, RGB_GREEN, and RGB_BLUE.
+- Push button input: GPIOA pin 3.
+- UART: huart0.
+- Periodic timer: Timer 0.
+
+Required behavior:
+
+1. Initialize all peripherals and start with all LEDs off.
+2. Receive one UART character at a time using UART_Receive_IT().
+3. Support these UART commands:
+   - r: select red continuously
+   - g: select green continuously
+   - b: select blue continuously
+   - o: turn all LEDs off
+   - a: enter automatic mode
+   - h: print help
+4. In automatic mode, Timer 0 must change the active color every 500 ms in
+   the sequence red -> green -> blue -> repeat.
+5. Each GPIOA pin 3 button press must cycle through:
+   OFF -> RED -> GREEN -> BLUE -> AUTO -> OFF
+6. Print a UART status message whenever the mode changes.
+7. Keep UART, GPIO, and timer callbacks short. Use volatile event flags and
+   perform the main application work in main().
+8. Add software button debounce without using a long delay inside an ISR.
+9. Ignore CR and LF characters sent by a terminal after a command.
+
+Submission requirements:
+- main.c
+- Makefile
+- terminal output showing at least three UART commands
+- a short explanation of the interrupt flow
+- a state diagram or table for the five operating modes
+
+Suggested repository references:
+- examples/Blinky/blinky.c
+- examples/GPIO/GPIO_Interrupt/gpio_int.c
+- examples/UART/UART_Interrupt/uart_int.c
+- examples/Timer/TimerInterrupt/timer_int.c
+- hal/drivers/hal_gpio.c
+- hal/drivers/hal_uart.c
+- hal/drivers/hal_timer.c
+- hal/include/aries.h
+
